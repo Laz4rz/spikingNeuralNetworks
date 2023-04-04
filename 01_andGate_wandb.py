@@ -60,16 +60,16 @@ sweep_config = {
     "description": "Lineaer(2, 8), Linear(8, 2), Leaky()",
     'parameters': {
         'learning_rate': {
-            'values': [0.0001, 0.001, 0.01, 0.1]
+            'values': [0.0001, 0.01, 0.1]
         },
         'batch_size': {
-            'values': [16, 32, 64, 128]
+            'values': [16, 32, 128]
         },
         'beta': {
-            'values': [0.1, 0.2, 0.5, 0.7, 0.9]
+            'values': [0.1, 0.2, 0.5, 0.9]
         },
         'threshold': {
-            'values': [0.1, 0.2, 0.5, 0.7, 0.9]
+            'values': [0.1, 0.2, 0.5, 0.9]
         },
         'timesteps': {
             'values': [5, 10, 25]
@@ -78,7 +78,7 @@ sweep_config = {
             'values': [30]
         },
         'rates': {
-            'values': [(0.9, 0.1), (0.8, 0.2), (0.7, 0.3), (0.6, 0.4)]
+            'values': [(0.9, 0.1), (0.7, 0.3)]
         },
         "surrogate": {
             "values": ["fast_sigmoid", "sigmoid", "straight_through_estimator", "spike_rate_escape"] # "triangular" doesnt work for some reason
