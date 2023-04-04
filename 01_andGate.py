@@ -67,22 +67,26 @@ def train_loop(net, train_loader, n_epochs, n_timesteps):
       
   return net, loss_hist, acc_hist, spks
 
+def predict(x):
+    net.eval()
+    with torch.no_grad():
+        res = forward_pass(net, Tensor(x).to(device), 10)[0]
+    return res.sum(0).argmax().item()
+
 np.random.seed(0)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-train_loader = DataLoader(and_generator(size=700), 32)
-test_loader = DataLoader(and_generator(size=300), 32)
+train_loader = DataLoader(and_generator(size=700), 16)
+test_loader = DataLoader(and_generator(size=300), 16)
 
 net = nn.Sequential(
     nn.Linear(2, 8),
     nn.Linear(8, 2),
-    snn.Leaky(beta=0.9, threshold=1, init_hidden=True, output=True)
+    snn.Leaky(beta=0.1, threshold=0.2, init_hidden=True, output=True)
 )
 net = net.to(device)
 
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-5, betas=(0.9, 0.999))
+optimizer = torch.optim.Adam(net.parameters(), lr=0.01, betas=(0.9, 0.999))
 loss_fn = SF.mse_count_loss(correct_rate=0.8, incorrect_rate=0.2)
 
-net, loss_hist, acc_hist, spks = train_loop(net, train_loader, 200, 25)
-
-spks = np.concatenate([x for x in spks if x.shape == (25, 32, 2)])
+net, loss_hist, acc_hist, spks = train_loop(net, train_loader, 30, 10)
