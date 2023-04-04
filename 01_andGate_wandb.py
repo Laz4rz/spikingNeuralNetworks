@@ -81,8 +81,8 @@ sweep_config = {
             'values': [(0.9, 0.1), (0.8, 0.2), (0.7, 0.3), (0.6, 0.4)]
         },
         "surrogate": {
-            "values": ["fast_sigmoid", "triangular", "sigmoid", "straight_through_estimator", "spike_rate_escape"]
-        },
+            "values": ["fast_sigmoid", "sigmoid", "straight_through_estimator", "spike_rate_escape"] # "triangular" doesnt work for some reason
+         },
         'seed': {
             'values': [1, 2137, 69]
         }
