@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -8,6 +7,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import wandb
+import os
+import random
 
 import snntorch as snn
 from snntorch import surrogate
@@ -51,7 +52,7 @@ def set_seed(seed: int = 42) -> None:
 
 sweep_config = {
     'method': 'grid',
-    'name': 'fighting snn loss',
+    'name': 'bRuTeFoRcE',
     'metric': {
         'goal': 'minimize',
         'name': 'train loss'
@@ -80,12 +81,19 @@ sweep_config = {
             'values': [(0.9, 0.1), (0.8, 0.2), (0.7, 0.3), (0.6, 0.4)]
         },
         "surrogate": {
-            "values": [surrogate.fast_sigmoid(), surrogate.triangular(), surrogate.sigmoid(), surrogate.straight_through_estimator(), surrogate.spike_rate_escape(), surrogate.heaviside()]
+            "values": ["fast_sigmoid", "triangular", "sigmoid", "straight_through_estimator", "spike_rate_escape"]
         },
         'seed': {
             'values': [1, 2137, 69]
         }
     }
+}
+surrogate_grads = {
+    "fast_sigmoid": surrogate.fast_sigmoid(),
+    "triangular": surrogate.triangular(),
+    "sigmoid": surrogate.sigmoid(),
+    "straight_through_estimator": surrogate.straight_through_estimator(),
+    "spike_rate_escape": surrogate.spike_rate_escape()
 }
 sweep_id = wandb.sweep(sweep_config, project='and-gate-snn')
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -101,7 +109,7 @@ def train():
   net = nn.Sequential(
       nn.Linear(2, 8),
       nn.Linear(8, 2),
-      snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=config.surrogate, init_hidden=True, output=True)
+      snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=surrogate_grads[config.surrogate], init_hidden=True, output=True)
   )
   net = net.to(device)
 
