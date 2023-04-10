@@ -111,14 +111,15 @@ def train():
   test_loader = DataLoader(and_generator(size=300), config.batch_size)
 
   net = nn.Sequential(
-      nn.Linear(2, 2),
+      nn.Linear(2, 8),
       nn.Linear(8, 2),
       snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=surrogate_grads[config.surrogate], init_hidden=True, output=True)
   )
   net = net.to(device)
 
   optimizer = torch.optim.Adam(net.parameters(), lr=config.learning_rate, betas=(0.9, 0.999))
-  loss_fn = SF.mse_count_loss(correct_rate=rates[config.rates][0], ratesincorrect_rate=rates[config.rates][1])
+  correct_rate, incorrect_rate = rates[config.rates]
+  loss_fn = SF.mse_count_loss(correct_rate=correct_rate, incorrect_rate=incorrect_rate)
 
   for epoch in range(config.epochs):
     for i, (data, targets) in enumerate(iter(train_loader)):
