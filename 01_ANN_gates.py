@@ -149,3 +149,4 @@ def train(return_model=False, plot=False):
 
 sweep_id = wandb.sweep(sweep_config, project='lic-gates')
 wandb.agent(sweep_id, train_sweep)
+

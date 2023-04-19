@@ -75,19 +75,18 @@ rates = {
    9: (0.9, 0.1), 
    7: (0.7, 0.3)
 }
-sweep_id = wandb.sweep(sweep_config, project='and-gate-snn')
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 def train_sweep():
   wandb.init()
   config = wandb.config
   set_seed(config.seed)
-  train_loader = DataLoader(or_generator(size=700), config.batch_size)
-  test_loader = DataLoader(or_generator(size=300), config.batch_size)
+  train_loader = DataLoader(and_generator(size=700), config.batch_size)
+  test_loader = DataLoader(and_generator(size=300), config.batch_size)
 
   net = nn.Sequential(
-      nn.Linear(2, 2),
+      nn.Linear(2, 8),
+      snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=surrogate_grads[config.surrogate], init_hidden=True),
+      nn.Linear(8, 2),
       snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=surrogate_grads[config.surrogate], init_hidden=True, output=True)
   ).to(device)
 
@@ -113,4 +112,6 @@ def train_sweep():
     "accuracy": SF.accuracy_rate(spk_rec, targets)
     })
 
+sweep_id = wandb.sweep(sweep_config, project='lic-gates')
+device = "cuda" if torch.cuda.is_available() else "cpu"
 wandb.agent(sweep_id, train_sweep)
