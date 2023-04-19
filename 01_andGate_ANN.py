@@ -12,7 +12,7 @@ import os
 import random
 import wandb
 
-from sweep_config import sweep_config_ANN
+from sweep_config import sweep_config_ANN as sweep_config
 
 
 def plot_confusion_matrix():
@@ -52,11 +52,26 @@ def and_generator(size: int):
   return list(zip(x, y))
 
 
+def or_generator(size: int):
+  x = Tensor(np.random.choice([0, 1], (size, 2)))
+  y = Tensor([1 if i[0] or i[1] else 0 for i in x]).reshape(size, 1)
+
+  return list(zip(x, y))
+
+
+def xor_generator(size: int):
+  x = np.random.choice([0, 1], (size, 2))
+  y = Tensor([1 if i[0] ^ i[1] else 0 for i in x]).reshape(size, 1)
+  x = Tensor(x)
+  return list(zip(x, y))
+
+
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super().__init__()
         self.one_way = nn.Sequential(
             nn.Linear(2, 8),
+            nn.Sigmoid(),
             nn.Linear(8, 1),
             nn.Sigmoid()
         )
@@ -74,7 +89,7 @@ def train_sweep():
     wandb.init()
     config = wandb.config
     set_seed(config.seed)
-    train_loader = DataLoader(and_generator(size=700), config.batch_size)
+    train_loader = DataLoader(xor_generator(size=700), config.batch_size)
 
     model = NeuralNetwork().to(device)
     loss_fn = nn.MSELoss()
@@ -132,5 +147,5 @@ def train(return_model=False, plot=False):
     if return_model:
         return model
 
-sweep_id = wandb.sweep(sweep_config_ANN, project='and-gate-snn')
+sweep_id = wandb.sweep(sweep_config, project='lic-gates')
 wandb.agent(sweep_id, train_sweep)

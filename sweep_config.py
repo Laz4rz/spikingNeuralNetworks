@@ -1,6 +1,6 @@
 sweep_config_SNN = {
     'method': 'grid',
-    'name': 'bRuTeFoRcE_V2_oneLayer_ANN',
+    'name': 'or_bRuTeFoRcE_V2_oneLayer_ANN',
     'metric': {
         'goal': 'minimize',
         'name': 'train loss'
@@ -39,7 +39,7 @@ sweep_config_SNN = {
 
 sweep_config_ANN = {
     'method': 'grid',
-    'name': 'bRuTeFoRcE_V2_ANN',
+    'name': 'and_ANN_1Layer_Sigmoid',
     'metric': {
         'goal': 'minimize',
         'name': 'train loss'

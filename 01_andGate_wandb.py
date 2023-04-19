@@ -16,6 +16,8 @@ from snntorch import utils
 import snntorch.functional as SF
 import snntorch.spikeplot as splt
 
+from sweep_config import sweep_config_SNN as sweep_config
+
 
 print("I work!")
 
@@ -25,6 +27,17 @@ def and_generator(size: int):
 
   return list(zip(x, y))
 
+def or_generator(size: int):
+  x = Tensor(np.random.choice([0, 1], (size, 2)))
+  y = Tensor([1 if i[0] or i[1] else 0 for i in x]).reshape(size, 1)
+
+  return list(zip(x, y))
+
+def xor_generator(size: int):
+  x = np.random.choice([0, 1], (size, 2))
+  y = Tensor([1 if i[0] ^ i[1] else 0 for i in x]).reshape(size, 1)
+  x = Tensor(x)
+  return list(zip(x, y))
 
 def forward_pass(net, data, num_steps):
   spk_rec = []
@@ -70,8 +83,8 @@ def train_sweep():
   wandb.init()
   config = wandb.config
   set_seed(config.seed)
-  train_loader = DataLoader(and_generator(size=700), config.batch_size)
-  test_loader = DataLoader(and_generator(size=300), config.batch_size)
+  train_loader = DataLoader(or_generator(size=700), config.batch_size)
+  test_loader = DataLoader(or_generator(size=300), config.batch_size)
 
   net = nn.Sequential(
       nn.Linear(2, 2),
