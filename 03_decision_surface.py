@@ -32,11 +32,40 @@ from toolbox import and_generator, or_generator, xor_generator, forward_pass, se
 #     decision_surface = predict(X, Y, model, timesteps)
 #     return decision_surface
 
+def accuracy(spk_out, targets):
+    with torch.no_grad():
+        _, idx = spk_out.sum(dim=0).max(1)
+        accuracy = ((targets == idx).float()).mean().item()
+    return accuracy
 
+def f1(spk_out, targets):
+    with torch.no_grad():
+        try:
+            _, idx = spk_out.sum(dim=0).max(1)
+            tp = ((idx == 1) & (targets == 1)).sum().item()
+            fp = ((idx == 1) & (targets == 0)).sum().item()
+            precision = tp / (tp + fp)
 
-def predict(x, y, model, timesteps):
+            fn = ((idx == 0) & (targets == 1)).sum().item()
+            recall = tp / (tp + fn)
+
+            f1 = 2 * (precision * recall) / (precision + recall)
+            return f1
+        except ZeroDivisionError:
+            # print("ZeroDivisionError, f1 set to 0")
+            return 0    
+
+def predict_single(x, y, model, timesteps):
     spk, _ = forward_pass(model, torch.tensor([x, y], dtype=torch.float32).to(device), timesteps)
     _, idx = spk[:, None, :].sum(dim=0).max(1)
+    return idx
+
+def predict(data, model, timesteps):
+    if data.get_device() == -1:
+        spk, _ = forward_pass(model, torch.tensor(data, dtype=torch.float32).to(device), timesteps)
+    else:
+        spk, _ = forward_pass(model, data, timesteps)
+    _, idx = spk.sum(dim=0).max(1)
     return idx
 
 def get_decision_surface(model, timesteps):
@@ -46,7 +75,7 @@ def get_decision_surface(model, timesteps):
     for x, y in np.array(list(itertools.product(xdata, ydata))):
         X.append(x)
         Y.append(y)
-        Z.append(predict(x, y, model, timesteps).item())
+        Z.append(predict_single(x, y, model, timesteps).item())
 
     X = np.array(X).reshape(10, 10)
     Y = np.array(Y).reshape(10, 10)
@@ -90,7 +119,6 @@ epochs = 30
 timesteps = 10
 seed = 1
 learning_rate = 1e-1
-seed = 3
 
 set_seed(seed=seed)
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -109,15 +137,29 @@ optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, betas=adam_beta
 correct_rate, incorrect_rate = rates
 loss_fn = SF.mse_count_loss(correct_rate=correct_rate, incorrect_rate=incorrect_rate)
 
-surface_history = []
-train_loss_history = []
-test_loss_history = []
+seed_dict = {
+    "surfaces": [],
+    "stats": {
+        "loss": {
+            "train": [],
+            "test": []
+        },
+        "accuracy": {
+            "train": [],
+            "test": []
+        },
+        "f1": {
+            "train": [],
+            "test": []
+        }
+    }
+}
 for epoch in tqdm(range(epochs)):
     with torch.no_grad():
         decision_surface = get_decision_surface(net, timesteps)
-        surface_history.append(decision_surface)
+        seed_dict["surfaces"].append(decision_surface)
 
-    train_epoch_loss_val = 0
+    train_epoch_loss_val, train_epoch_acc_val, train_epoch_f1_val = 0, 0, 0
     for i, (data, targets) in enumerate(iter(train_loader)):
         data = data.to(device)
         targets = targets.squeeze().to(device)
@@ -128,11 +170,18 @@ for epoch in tqdm(range(epochs)):
         optimizer.zero_grad() # null gradients
         loss_val.backward() # calculate gradients
         optimizer.step() # update weights
-        train_epoch_loss_val += loss_val.item()
-    train_loss_history.append(train_epoch_loss_val/batch_size)
+    #     train_epoch_loss_val += loss_val.item()
+    #     train_epoch_acc_val += accuracy(spk_rec, targets)
+    #     train_epoch_f1_val += f1(spk_rec, targets)
+    # seed_dict["stats"]["loss"]["train"].append(train_epoch_loss_val/len(train_loader))
+    # seed_dict["stats"]["accuracy"]["train"].append(train_epoch_acc_val/len(train_loader))
+    # seed_dict["stats"]["f1"]["train"].append(train_epoch_f1_val/len(train_loader))
+        seed_dict["stats"]["loss"]["train"].append(loss_val.item())
+        seed_dict["stats"]["accuracy"]["train"].append(accuracy(spk_rec, targets))
+        seed_dict["stats"]["f1"]["train"].append(f1(spk_rec, targets))
 
 
-    test_epoch_loss_val = 0
+    test_epoch_loss_val, test_epoch_acc_val, test_epoch_f1_val = 0, 0, 0
     for i, (data, targets) in enumerate(iter(test_loader)):
         data = data.to(device)
         targets = targets.squeeze().to(device)
@@ -140,14 +189,12 @@ for epoch in tqdm(range(epochs)):
         net.eval()
         spk_rec, mem_hist = forward_pass(net, data, timesteps)
         loss_val = loss_fn(spk_rec, targets)
-        test_epoch_loss_val += loss_val.item()
-    test_loss_history.append(loss_val.item()/batch_size)
-
-
-
-# plt.figure(figsize=(10, 10))
-# Z = predict(X, Y)
-# ax = plt.axes(projection='3d')
-# ax.plot_surface(X, Y, Z, cmap='plasma')
-# plt.title("Continous prediction surface", y=1.05)
-# plt.show()
+    #     test_epoch_loss_val += loss_val.item()
+    #     test_epoch_acc_val += accuracy(spk_rec, targets)
+    #     test_epoch_f1_val += f1(spk_rec, targets)
+    # seed_dict["stats"]["loss"]["test"].append(test_epoch_loss_val/len(test_loader))
+    # seed_dict["stats"]["accuracy"]["test"].append(test_epoch_acc_val/len(test_loader))
+    # seed_dict["stats"]["f1"]["test"].append(test_epoch_f1_val/len(test_loader))
+    seed_dict["stats"]["loss"]["test"].append(loss_val.item())
+    seed_dict["stats"]["accuracy"]["test"].append(accuracy(spk_rec, targets))
+    seed_dict["stats"]["f1"]["test"].append(f1(spk_rec, targets))
