@@ -27,6 +27,7 @@ def xor_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
   return list(zip(x, y))
 
 def set_seed(seed: int = 42) -> None:
+    seed = int(seed)
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)

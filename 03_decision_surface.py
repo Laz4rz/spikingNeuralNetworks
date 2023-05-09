@@ -44,7 +44,7 @@ def f1(spk_out, targets):
     from sklearn import metrics
     with torch.no_grad():
         _, idx = spk_out.sum(dim=0).max(1)
-        f1 = metrics.f1_score(targets, idx)
+        f1 = metrics.f1_score(targets.cpu().numpy(), idx.cpu().numpy())
         return f1
 
 def predict_single(x, y, model, timesteps):
