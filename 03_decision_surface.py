@@ -19,6 +19,8 @@ import snntorch.spikeplot as splt
 
 from toolbox import and_generator, or_generator, xor_generator, forward_pass, set_seed
 
+np.printoptions(precision=3)
+
 # @np.vectorize
 # def predict(x, y, model, timesteps):
 #     spk, _ = forward_pass(model, torch.tensor([x, y], dtype=torch.float32).to(device), timesteps)
@@ -39,21 +41,11 @@ def accuracy(spk_out, targets):
     return accuracy
 
 def f1(spk_out, targets):
+    from sklearn import metrics
     with torch.no_grad():
-        try:
-            _, idx = spk_out.sum(dim=0).max(1)
-            tp = ((idx == 1) & (targets == 1)).sum().item()
-            fp = ((idx == 1) & (targets == 0)).sum().item()
-            precision = tp / (tp + fp)
-
-            fn = ((idx == 0) & (targets == 1)).sum().item()
-            recall = tp / (tp + fn)
-
-            f1 = 2 * (precision * recall) / (precision + recall)
-            return f1
-        except ZeroDivisionError:
-            # print("ZeroDivisionError, f1 set to 0")
-            return 0    
+        _, idx = spk_out.sum(dim=0).max(1)
+        f1 = metrics.f1_score(targets, idx)
+        return f1
 
 def predict_single(x, y, model, timesteps):
     spk, _ = forward_pass(model, torch.tensor([x, y], dtype=torch.float32).to(device), timesteps)
@@ -159,11 +151,11 @@ for epoch in tqdm(range(epochs)):
         decision_surface = get_decision_surface(net, timesteps)
         seed_dict["surfaces"].append(decision_surface)
 
+
     train_epoch_loss_val, train_epoch_acc_val, train_epoch_f1_val = 0, 0, 0
     for i, (data, targets) in enumerate(iter(train_loader)):
         data = data.to(device)
         targets = targets.squeeze().to(device)
-
         net.train()
         spk_rec, mem_hist = forward_pass(net, data, timesteps) # forward-pass
         loss_val = loss_fn(spk_rec, targets) # loss calculation
@@ -179,7 +171,6 @@ for epoch in tqdm(range(epochs)):
         seed_dict["stats"]["loss"]["train"].append(loss_val.item())
         seed_dict["stats"]["accuracy"]["train"].append(accuracy(spk_rec, targets))
         seed_dict["stats"]["f1"]["train"].append(f1(spk_rec, targets))
-
 
     test_epoch_loss_val, test_epoch_acc_val, test_epoch_f1_val = 0, 0, 0
     for i, (data, targets) in enumerate(iter(test_loader)):
