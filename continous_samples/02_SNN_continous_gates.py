@@ -17,22 +17,11 @@ from snntorch import utils
 import snntorch.functional as SF
 import snntorch.spikeplot as splt
 
-from toolbox import and_generator, or_generator, xor_generator, forward_pass, set_seed
+import sys
+sys.path.append('../')
+from toolbox import continous_and_generator, continous_or_generator, continous_xor_generator, forward_pass, set_seed
 
 np.printoptions(precision=3)
-
-# @np.vectorize
-# def predict(x, y, model, timesteps):
-#     spk, _ = forward_pass(model, torch.tensor([x, y], dtype=torch.float32).to(device), timesteps)
-#     _, idx = spk[:, None, :].sum(dim=0).max(1)
-#     return idx
-
-# def get_decision_surface(model, timesteps):
-#     xdata = np.linspace(0, 1, 10)
-#     ydata = np.linspace(0, 1, 10)
-#     X, Y = np.meshgrid(xdata, ydata)
-#     decision_surface = predict(X, Y, model, timesteps)
-#     return decision_surface
 
 def accuracy(spk_out, targets):
     with torch.no_grad():
@@ -89,34 +78,22 @@ def plot_decision_surface(decision_surface):
     plt.ylabel("y")
     plt.show()
 
-def forward_pass(net, data, num_steps):
-  spk_rec = []
-  mem_hist = []
-  utils.reset(net)
-
-  for step in range(num_steps):
-      spk_out, mem_out = net(data)
-      mem_hist.append(mem_out.cpu().detach().numpy())
-      spk_rec.append(spk_out)
-
-  return torch.stack(spk_rec), np.stack(mem_hist)
-
 batch_size = 32
 beta = 0.9
 threshold = 0.9
 surrogate_gradient = surrogate.fast_sigmoid()
 adam_betas = (0.9, 0.999)
 rates = (0.9, 0.1)
-epochs = 30
+epochs = 50
 timesteps = 10
 seed = 1
-learning_rate = 1e-1
+learning_rate = 1e-2
 
 set_seed(seed=seed)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-train_loader = DataLoader(and_generator(size=700), 32)
-test_loader = DataLoader(and_generator(size=300), 32)
+train_loader = DataLoader(continous_xor_generator(size=700), 32)
+test_loader = DataLoader(continous_xor_generator(size=300), 32)
 
 net = nn.Sequential(
     nn.Linear(2, 8),
@@ -150,6 +127,10 @@ for epoch in tqdm(range(epochs)):
     with torch.no_grad():
         decision_surface = get_decision_surface(net, timesteps)
         seed_dict["surfaces"].append(decision_surface)
+        print("Epoch", epoch)
+        plt.plot( np.arange(0, epoch, 1)/epochs, seed_dict["stats"]["f1"]["train"])
+        plt.plot(np.arange(0, epoch, 1)/epochs, seed_dict["stats"]["accuracy"]["train"])
+        plot_decision_surface(decision_surface)
 
 
     train_epoch_loss_val, train_epoch_acc_val, train_epoch_f1_val = 0, 0, 0
@@ -162,15 +143,15 @@ for epoch in tqdm(range(epochs)):
         optimizer.zero_grad() # null gradients
         loss_val.backward() # calculate gradients
         optimizer.step() # update weights
-    #     train_epoch_loss_val += loss_val.item()
-    #     train_epoch_acc_val += accuracy(spk_rec, targets)
-    #     train_epoch_f1_val += f1(spk_rec, targets)
-    # seed_dict["stats"]["loss"]["train"].append(train_epoch_loss_val/len(train_loader))
-    # seed_dict["stats"]["accuracy"]["train"].append(train_epoch_acc_val/len(train_loader))
-    # seed_dict["stats"]["f1"]["train"].append(train_epoch_f1_val/len(train_loader))
-        seed_dict["stats"]["loss"]["train"].append(loss_val.item())
-        seed_dict["stats"]["accuracy"]["train"].append(accuracy(spk_rec, targets))
-        seed_dict["stats"]["f1"]["train"].append(f1(spk_rec, targets))
+        train_epoch_loss_val += loss_val.item()
+        train_epoch_acc_val += accuracy(spk_rec, targets)
+        train_epoch_f1_val += f1(spk_rec, targets)
+    seed_dict["stats"]["loss"]["train"].append(train_epoch_loss_val/len(train_loader))
+    seed_dict["stats"]["accuracy"]["train"].append(train_epoch_acc_val/len(train_loader))
+    seed_dict["stats"]["f1"]["train"].append(train_epoch_f1_val/len(train_loader))
+        # seed_dict["stats"]["loss"]["train"].append(loss_val.item())
+        # seed_dict["stats"]["accuracy"]["train"].append(accuracy(spk_rec, targets))
+        # seed_dict["stats"]["f1"]["train"].append(f1(spk_rec, targets))
 
     test_epoch_loss_val, test_epoch_acc_val, test_epoch_f1_val = 0, 0, 0
     for i, (data, targets) in enumerate(iter(test_loader)):
@@ -180,12 +161,12 @@ for epoch in tqdm(range(epochs)):
         net.eval()
         spk_rec, mem_hist = forward_pass(net, data, timesteps)
         loss_val = loss_fn(spk_rec, targets)
-    #     test_epoch_loss_val += loss_val.item()
-    #     test_epoch_acc_val += accuracy(spk_rec, targets)
-    #     test_epoch_f1_val += f1(spk_rec, targets)
-    # seed_dict["stats"]["loss"]["test"].append(test_epoch_loss_val/len(test_loader))
-    # seed_dict["stats"]["accuracy"]["test"].append(test_epoch_acc_val/len(test_loader))
-    # seed_dict["stats"]["f1"]["test"].append(test_epoch_f1_val/len(test_loader))
-    seed_dict["stats"]["loss"]["test"].append(loss_val.item())
-    seed_dict["stats"]["accuracy"]["test"].append(accuracy(spk_rec, targets))
-    seed_dict["stats"]["f1"]["test"].append(f1(spk_rec, targets))
+        test_epoch_loss_val += loss_val.item()
+        test_epoch_acc_val += accuracy(spk_rec, targets)
+        test_epoch_f1_val += f1(spk_rec, targets)
+    seed_dict["stats"]["loss"]["test"].append(test_epoch_loss_val/len(test_loader))
+    seed_dict["stats"]["accuracy"]["test"].append(test_epoch_acc_val/len(test_loader))
+    seed_dict["stats"]["f1"]["test"].append(test_epoch_f1_val/len(test_loader))
+    # seed_dict["stats"]["loss"]["test"].append(loss_val.item())
+    # seed_dict["stats"]["accuracy"]["test"].append(accuracy(spk_rec, targets))
+    # seed_dict["stats"]["f1"]["test"].append(f1(spk_rec, targets))
