@@ -26,6 +26,21 @@ def xor_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
   x = Tensor(x)
   return list(zip(x, y))
 
+def continous_and_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
+    x = torch.from_numpy(np.random.random(size=(size, 2, 1)).round(2))
+    y = torch.from_numpy(np.apply_along_axis(lambda t: t[0] > 0.5 and t[1] > 0.5, 1, x).astype(int))
+    return list(zip(x, y))
+
+def continous_or_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
+    x = torch.from_numpy(np.random.random(size=(size, 2, 1)).round(2))
+    y = torch.from_numpy((~np.apply_along_axis(lambda t: t[0] < 0.5 and t[1] < 0.5, 1, x)).astype(int))
+    return list(zip(x, y))
+
+def continous_xor_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
+    x = torch.from_numpy(np.random.random(size=(size, 2, 1)).round(2))
+    y = torch.from_numpy((~np.apply_along_axis(lambda t: (t[0] < 0.5 and t[1] < 0.5) or t[0] > 0.5 and t[1] > 0.5, 1, x)).astype(int))
+    return list(zip(x, y))
+
 def set_seed(seed: int = 42) -> None:
     seed = int(seed)
     np.random.seed(seed)
@@ -39,7 +54,7 @@ def set_seed(seed: int = 42) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
     print(f"Random seed set as {seed}")
 
-def forward_pass(net, data, num_steps):
+def forward_pass(net, data, num_steps: int) -> Tuple[Tensor, np.ndarray]:
   spk_rec = []
   mem_hist = []
   utils.reset(net)
