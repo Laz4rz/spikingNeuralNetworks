@@ -27,7 +27,7 @@ def xor_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
   return list(zip(x, y))
 
 def continous_and_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
-    x = torch.from_numpy(np.random.random(size=(size, 2)).round(2))
+    x = torch.from_numpy(np.random.random(size=(size, 2)).round(2)).to(torch.float32)
     y = torch.from_numpy(np.apply_along_axis(lambda t: t[0] > 0.5 and t[1] > 0.5, 1, x).astype(int)).to(torch.float16)
     return list(zip(x, y))
 
