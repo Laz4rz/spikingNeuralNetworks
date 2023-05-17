@@ -5,8 +5,21 @@ import os
 from torch import Tensor
 from snntorch import utils
 
-from typing import List, Tuple
+from typing import List, Tuple, Callable
+from dataclasses import dataclass
 
+@dataclass
+class Config:
+    batch_size: int
+    beta: float
+    threshold: float
+    adam_betas: Tuple[float, float]
+    rates: Tuple[float, float]
+    epochs: int
+    timesteps: int
+    learning_rate: float
+    seed: int
+    surrogate_gradient: Callable
 
 def and_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
   x = Tensor(np.random.choice([0, 1], (size, 2)))
