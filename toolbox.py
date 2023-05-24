@@ -79,3 +79,18 @@ def forward_pass(net, data, num_steps: int) -> Tuple[Tensor, np.ndarray]:
       spk_rec.append(spk_out)
 
   return torch.stack(spk_rec), np.stack(mem_hist)
+
+
+def clear_print():
+  import os
+
+  if os.name == 'nt':
+    os.system('cls')
+  else:
+    os.system('clear')
+
+
+def get_git_revision_hash() -> str:
+    import subprocess
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
