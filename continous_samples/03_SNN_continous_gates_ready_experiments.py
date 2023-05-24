@@ -205,3 +205,7 @@ plt.show()
 # dump results
 git_hash = get_git_revision_hash()
 results.to_csv(f"results_{git_hash}.csv")
+
+# finding converged losses
+losses = results.xs(("loss", "train"), level=("stat", "mode"), axis=1)
+converged = losses.std()[losses.std() < losses.std().quantile(0.1)].index
