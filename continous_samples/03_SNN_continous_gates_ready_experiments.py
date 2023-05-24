@@ -23,6 +23,20 @@ from toolbox import continous_and_generator, continous_or_generator, continous_x
 
 np.printoptions(precision=3)
 
+config = Config(
+    batch_size=32,
+    beta=0.9,
+    threshold=0.9,
+    surrogate_gradient=surrogate.fast_sigmoid(),
+    adam_betas=(0.9, 0.999),
+    rates=(0.9, 0.1),
+    epochs=50,
+    timesteps=10,
+    data_seed=1,
+    learning_rate=1e-2,
+    model_seeds=[1, 2, 3, 4, 5],
+)
+
 def accuracy(spk_out, targets):
     with torch.no_grad():
         _, idx = spk_out.sum(dim=0).max(1)
@@ -78,31 +92,45 @@ def plot_decision_surface(decision_surface):
     plt.ylabel("y")
     plt.show()
 
-config = Config(
-    batch_size=32,
-    beta=0.9,
-    threshold=0.9,
-    surrogate_gradient=surrogate.fast_sigmoid(),
-    adam_betas=(0.9, 0.999),
-    rates=(0.9, 0.1),
-    epochs=50,
-    timesteps=10,
-    data_seed=1,
-    learning_rate=1e-2,
-    model_seeds=[1, 2, 3, 4, 5],
-)
+def create_results_df(config):
+    # Create the index levels
+    experiments = ["AND", "OR", "XOR"]
+    seeds = config.model_seeds
+    columns = ["stats"]
+    stats = ["loss", "accuracy", "f1"]
+    mode = ["train", "test"]
+
+    # Create the multi-index
+    multi_index = pd.MultiIndex.from_product(
+        [experiments, seeds, columns, stats, mode], 
+        names=["experiment", "model_seed", "column", "stat", "mode"]
+    )
+
+    # Create the DataFrame
+    df = pd.DataFrame(index=range(config.epochs), columns=multi_index)
+    return df
+
+def update_results_df(df, experiment, model_seed, train_stats, test_stats):
+    # Update the train stats
+    for stat, value in train_stats.items():
+        df.loc[:, (experiment, model_seed, "stats", stat, "train")] = value
+
+    # Update the test stats
+    for stat, value in test_stats.items():
+        df.loc[:, (experiment, model_seed, "stats", stat, "test")] = value
 
 # set seed for data creation
 set_seed(config.data_seed)
 
 dataloaders = (
-    (DataLoader(continous_and_generator(size=700), 32), DataLoader(continous_and_generator(size=300), 32)),
-    (DataLoader(continous_or_generator(size=700), 32), DataLoader(continous_or_generator(size=300), 32)),
-    (DataLoader(continous_xor_generator(size=700), 32), DataLoader(continous_xor_generator(size=300), 32))
+    ("AND", DataLoader(continous_and_generator(size=700), config.batch_size), DataLoader(continous_and_generator(size=300), config.batch_size)),
+    ("OR", DataLoader(continous_or_generator(size=700), config.batch_size), DataLoader(continous_or_generator(size=300), config.batch_size)),
+    ("XOR", DataLoader(continous_xor_generator(size=700), config.batch_size), DataLoader(continous_xor_generator(size=300), config.batch_size))
 )
 
-# set seed for model initialization
-for train_loader, test_loader in dataloaders:
+results = create_results_df(config)
+
+for name, train_loader, test_loader in dataloaders:
     for seed in config.model_seeds:
         set_seed(seed=seed)
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -117,34 +145,8 @@ for train_loader, test_loader in dataloaders:
         optimizer = torch.optim.Adam(net.parameters(), lr=config.learning_rate, betas=config.adam_betas)
         correct_rate, incorrect_rate = config.rates
         loss_fn = SF.mse_count_loss(correct_rate=correct_rate, incorrect_rate=incorrect_rate)
-
-        seed_dict = {
-            "surfaces": [],
-            "stats": {
-                "loss": {
-                    "train": [],
-                    "test": []
-                },
-                "accuracy": {
-                    "train": [],
-                    "test": []
-                },
-                "f1": {
-                    "train": [],
-                    "test": []
-                }
-            }
-        }
+        
         for epoch in tqdm(range(config.epochs)):
-            with torch.no_grad():
-                decision_surface = get_decision_surface(net, config.timesteps)
-                seed_dict["surfaces"].append(decision_surface)
-                print("Epoch", epoch)
-                plt.plot( np.arange(0, epoch, 1)/config.epochs, seed_dict["stats"]["f1"]["train"])
-                plt.plot(np.arange(0, epoch, 1)/config.epochs, seed_dict["stats"]["accuracy"]["train"])
-                plot_decision_surface(decision_surface)
-
-
             train_epoch_loss_val, train_epoch_acc_val, train_epoch_f1_val = 0, 0, 0
             for i, (data, targets) in enumerate(iter(train_loader)):
                 data = data.to(device)
@@ -155,15 +157,14 @@ for train_loader, test_loader in dataloaders:
                 optimizer.zero_grad() # null gradients
                 loss_val.backward() # calculate gradients
                 optimizer.step() # update weights
-            #     train_epoch_loss_val += loss_val.item()
-            #     train_epoch_acc_val += accuracy(spk_rec, targets)
-            #     train_epoch_f1_val += f1(spk_rec, targets)
-            # seed_dict["stats"]["loss"]["train"].append(train_epoch_loss_val/len(train_loader))
-            # seed_dict["stats"]["accuracy"]["train"].append(train_epoch_acc_val/len(train_loader))
-            # seed_dict["stats"]["f1"]["train"].append(train_epoch_f1_val/len(train_loader))
-                seed_dict["stats"]["loss"]["train"].append(loss_val.item())
-                seed_dict["stats"]["accuracy"]["train"].append(accuracy(spk_rec, targets))
-                seed_dict["stats"]["f1"]["train"].append(f1(spk_rec, targets))
+                train_epoch_loss_val += loss_val.item()
+                train_epoch_acc_val += accuracy(spk_rec, targets)
+                train_epoch_f1_val += f1(spk_rec, targets)
+
+            train_epoch_loss_val = train_epoch_loss_val/len(train_loader)
+            train_epoch_acc_val = train_epoch_acc_val/len(train_loader)
+            train_epoch_f1_val = train_epoch_f1_val/len(train_loader)
+
 
             test_epoch_loss_val, test_epoch_acc_val, test_epoch_f1_val = 0, 0, 0
             for i, (data, targets) in enumerate(iter(test_loader)):
@@ -173,12 +174,18 @@ for train_loader, test_loader in dataloaders:
                 net.eval()
                 spk_rec, mem_hist = forward_pass(net, data, config.timesteps)
                 loss_val = loss_fn(spk_rec, targets)
-            #     test_epoch_loss_val += loss_val.item()
-            #     test_epoch_acc_val += accuracy(spk_rec, targets)
-            #     test_epoch_f1_val += f1(spk_rec, targets)
-            # seed_dict["stats"]["loss"]["test"].append(test_epoch_loss_val/len(test_loader))
-            # seed_dict["stats"]["accuracy"]["test"].append(test_epoch_acc_val/len(test_loader))
-            # seed_dict["stats"]["f1"]["test"].append(test_epoch_f1_val/len(test_loader))
-                seed_dict["stats"]["loss"]["test"].append(loss_val.item())
-                seed_dict["stats"]["accuracy"]["test"].append(accuracy(spk_rec, targets))
-                seed_dict["stats"]["f1"]["test"].append(f1(spk_rec, targets))
+                test_epoch_loss_val += loss_val.item()
+                test_epoch_acc_val += accuracy(spk_rec, targets)
+                test_epoch_f1_val += f1(spk_rec, targets)
+            
+            test_epoch_loss_val = test_epoch_loss_val/len(test_loader)
+            test_epoch_acc_val = test_epoch_acc_val/len(test_loader)
+            test_epoch_f1_val = test_epoch_f1_val/len(test_loader)
+
+            update_results_df(
+                results, 
+                name, 
+                seed, 
+                {"loss": train_epoch_loss_val, "accuracy": train_epoch_acc_val, "f1": train_epoch_f1_val}, 
+                {"loss": test_epoch_loss_val, "accuracy": test_epoch_acc_val, "f1": test_epoch_f1_val}
+            )
