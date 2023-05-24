@@ -19,8 +19,7 @@ import snntorch.spikeplot as splt
 
 import sys
 sys.path.append('../')
-from toolbox import continous_and_generator, continous_or_generator, continous_xor_generator, forward_pass, set_seed, Config
-
+from toolbox import continous_and_generator, continous_or_generator, continous_xor_generator, forward_pass, set_seed, Config, clear_print, get_git_revision_hash
 np.printoptions(precision=3)
 
 config = Config(
@@ -34,7 +33,7 @@ config = Config(
     timesteps=10,
     data_seed=1,
     learning_rate=1e-2,
-    model_seeds=[1, 2, 3, 4, 5],
+    model_seeds=[seed for seed in range(1, 51)]
 )
 
 def accuracy(spk_out, targets):
@@ -110,16 +109,17 @@ def create_results_df(config):
     df = pd.DataFrame(index=range(config.epochs), columns=multi_index)
     return df
 
-def update_results_df(df, experiment, model_seed, train_stats, test_stats):
+def update_results_df(df, experiment, model_seed, epoch, train_stats, test_stats):
     # Update the train stats
     for stat, value in train_stats.items():
-        df.loc[:, (experiment, model_seed, "stats", stat, "train")] = value
+        df.loc[epoch, (experiment, model_seed, "stats", stat, "train")] = value
 
     # Update the test stats
     for stat, value in test_stats.items():
-        df.loc[:, (experiment, model_seed, "stats", stat, "test")] = value
+        df.loc[epoch, (experiment, model_seed, "stats", stat, "test")] = value
 
 # set seed for data creation
+print("Data seed:", config.data_seed)
 set_seed(config.data_seed)
 
 dataloaders = (
@@ -131,7 +131,9 @@ dataloaders = (
 results = create_results_df(config)
 
 for name, train_loader, test_loader in dataloaders:
+    print("Experiment:", name)
     for seed in config.model_seeds:
+        print("Model seed:", seed)
         set_seed(seed=seed)
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -165,7 +167,6 @@ for name, train_loader, test_loader in dataloaders:
             train_epoch_acc_val = train_epoch_acc_val/len(train_loader)
             train_epoch_f1_val = train_epoch_f1_val/len(train_loader)
 
-
             test_epoch_loss_val, test_epoch_acc_val, test_epoch_f1_val = 0, 0, 0
             for i, (data, targets) in enumerate(iter(test_loader)):
                 data = data.to(device)
@@ -186,6 +187,21 @@ for name, train_loader, test_loader in dataloaders:
                 results, 
                 name, 
                 seed, 
+                epoch,
                 {"loss": train_epoch_loss_val, "accuracy": train_epoch_acc_val, "f1": train_epoch_f1_val}, 
                 {"loss": test_epoch_loss_val, "accuracy": test_epoch_acc_val, "f1": test_epoch_f1_val}
             )
+    clear_print()
+
+# end summary
+fig, ax = plt.subplots(1, 3, figsize=(15, 15))
+results.xs(("loss", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[0])
+results.xs(("accuracy", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[1])
+results.xs(("f1", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[2])
+plt.suptitle("Train summary")
+plt.tight_layout()
+plt.show()
+
+# dump results
+git_hash = get_git_revision_hash()
+results.to_csv(f"results_{git_hash}.csv")
