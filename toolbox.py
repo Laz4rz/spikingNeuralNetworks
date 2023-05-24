@@ -18,8 +18,9 @@ class Config:
     epochs: int
     timesteps: int
     learning_rate: float
-    seed: int
+    data_seed: int
     surrogate_gradient: Callable
+    model_seeds: List[int]
 
 def and_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
   x = Tensor(np.random.choice([0, 1], (size, 2)))
