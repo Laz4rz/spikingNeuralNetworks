@@ -22,20 +22,6 @@ sys.path.append('../')
 from toolbox import continous_and_generator, continous_or_generator, continous_xor_generator, forward_pass, set_seed, Config, clear_print, get_git_revision_hash
 np.printoptions(precision=3)
 
-config = Config(
-    batch_size=32,
-    beta=0.9,
-    threshold=0.9,
-    surrogate_gradient=surrogate.fast_sigmoid(),
-    adam_betas=(0.9, 0.999),
-    rates=(0.9, 0.1),
-    epochs=50,
-    timesteps=10,
-    data_seed=1,
-    learning_rate=1e-2,
-    model_seeds=[seed for seed in range(1, 51)]
-)
-
 def accuracy(spk_out, targets):
     with torch.no_grad():
         _, idx = spk_out.sum(dim=0).max(1)
@@ -49,12 +35,12 @@ def f1(spk_out, targets):
         f1 = metrics.f1_score(targets.cpu().numpy(), idx.cpu().numpy())
         return f1
 
-def predict_single(x, y, model, timesteps):
+def predict_single(x, y, model, timesteps, device):
     spk, _ = forward_pass(model, torch.tensor([x, y], dtype=torch.float32).to(device), timesteps)
     _, idx = spk[:, None, :].sum(dim=0).max(1)
     return idx
 
-def predict(data, model, timesteps):
+def predict(data, model, timesteps, device):
     if data.get_device() == -1:
         spk, _ = forward_pass(model, torch.tensor(data, dtype=torch.float32).to(device), timesteps)
     else:
@@ -62,14 +48,14 @@ def predict(data, model, timesteps):
     _, idx = spk.sum(dim=0).max(1)
     return idx
 
-def get_decision_surface(model, timesteps):
+def get_decision_surface(model, timesteps, device):
     xdata = np.linspace(0, 1, 10)
     ydata = np.linspace(0, 1, 10)
     X, Y, Z = [], [], []
     for x, y in np.array(list(itertools.product(xdata, ydata))):
         X.append(x)
         Y.append(y)
-        Z.append(predict_single(x, y, model, timesteps).item())
+        Z.append(predict_single(x, y, model, timesteps, device).item())
 
     X = np.array(X).reshape(10, 10)
     Y = np.array(Y).reshape(10, 10)
@@ -118,94 +104,120 @@ def update_results_df(df, experiment, model_seed, epoch, train_stats, test_stats
     for stat, value in test_stats.items():
         df.loc[epoch, (experiment, model_seed, "stats", stat, "test")] = value
 
-# set seed for data creation
-print("Data seed:", config.data_seed)
-set_seed(config.data_seed)
+def run_experiments(config, dataloaders) -> pd.DataFrame:
+    results = create_results_df(config)
 
-dataloaders = (
-    ("AND", DataLoader(continous_and_generator(size=700), config.batch_size), DataLoader(continous_and_generator(size=300), config.batch_size)),
-    ("OR", DataLoader(continous_or_generator(size=700), config.batch_size), DataLoader(continous_or_generator(size=300), config.batch_size)),
-    ("XOR", DataLoader(continous_xor_generator(size=700), config.batch_size), DataLoader(continous_xor_generator(size=300), config.batch_size))
-)
+    for name, train_loader, test_loader in dataloaders:
+        print("Experiment:", name)
+        for seed in config.model_seeds:
+            print("Model seed:", seed)
+            set_seed(seed=seed)
+            device = "cuda" if torch.cuda.is_available() else "cpu"
 
-results = create_results_df(config)
+            net = nn.Sequential(
+                nn.Linear(2, 8),
+                snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=config.surrogate_gradient, init_hidden=True),
+                nn.Linear(8, 2),
+                snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=config.surrogate_gradient, init_hidden=True, output=True)
+            ).to(device)
 
-for name, train_loader, test_loader in dataloaders:
-    print("Experiment:", name)
-    for seed in config.model_seeds:
-        print("Model seed:", seed)
-        set_seed(seed=seed)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        net = nn.Sequential(
-            nn.Linear(2, 8),
-            snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=config.surrogate_gradient, init_hidden=True),
-            nn.Linear(8, 2),
-            snn.Leaky(beta=config.beta, threshold=config.threshold, spike_grad=config.surrogate_gradient, init_hidden=True, output=True)
-        ).to(device)
-
-        optimizer = torch.optim.Adam(net.parameters(), lr=config.learning_rate, betas=config.adam_betas)
-        correct_rate, incorrect_rate = config.rates
-        loss_fn = SF.mse_count_loss(correct_rate=correct_rate, incorrect_rate=incorrect_rate)
-        
-        for epoch in tqdm(range(config.epochs)):
-            train_epoch_loss_val, train_epoch_acc_val, train_epoch_f1_val = 0, 0, 0
-            for i, (data, targets) in enumerate(iter(train_loader)):
-                data = data.to(device)
-                targets = targets.squeeze().to(device)
-                net.train()
-                spk_rec, mem_hist = forward_pass(net, data, config.timesteps) # forward-pass
-                loss_val = loss_fn(spk_rec, targets) # loss calculation
-                optimizer.zero_grad() # null gradients
-                loss_val.backward() # calculate gradients
-                optimizer.step() # update weights
-                train_epoch_loss_val += loss_val.item()
-                train_epoch_acc_val += accuracy(spk_rec, targets)
-                train_epoch_f1_val += f1(spk_rec, targets)
-
-            train_epoch_loss_val = train_epoch_loss_val/len(train_loader)
-            train_epoch_acc_val = train_epoch_acc_val/len(train_loader)
-            train_epoch_f1_val = train_epoch_f1_val/len(train_loader)
-
-            test_epoch_loss_val, test_epoch_acc_val, test_epoch_f1_val = 0, 0, 0
-            for i, (data, targets) in enumerate(iter(test_loader)):
-                data = data.to(device)
-                targets = targets.squeeze().to(device)
-
-                net.eval()
-                spk_rec, mem_hist = forward_pass(net, data, config.timesteps)
-                loss_val = loss_fn(spk_rec, targets)
-                test_epoch_loss_val += loss_val.item()
-                test_epoch_acc_val += accuracy(spk_rec, targets)
-                test_epoch_f1_val += f1(spk_rec, targets)
+            optimizer = torch.optim.Adam(net.parameters(), lr=config.learning_rate, betas=config.adam_betas)
+            correct_rate, incorrect_rate = config.rates
+            loss_fn = SF.mse_count_loss(correct_rate=correct_rate, incorrect_rate=incorrect_rate)
             
-            test_epoch_loss_val = test_epoch_loss_val/len(test_loader)
-            test_epoch_acc_val = test_epoch_acc_val/len(test_loader)
-            test_epoch_f1_val = test_epoch_f1_val/len(test_loader)
+            for epoch in tqdm(range(config.epochs)):
+                train_epoch_loss_val, train_epoch_acc_val, train_epoch_f1_val = 0, 0, 0
+                for i, (data, targets) in enumerate(iter(train_loader)):
+                    data = data.to(device)
+                    targets = targets.squeeze().to(device)
+                    net.train()
+                    spk_rec, mem_hist = forward_pass(net, data, config.timesteps) # forward-pass
+                    loss_val = loss_fn(spk_rec, targets) # loss calculation
+                    optimizer.zero_grad() # null gradients
+                    loss_val.backward() # calculate gradients
+                    optimizer.step() # update weights
+                    train_epoch_loss_val += loss_val.item()
+                    train_epoch_acc_val += accuracy(spk_rec, targets)
+                    train_epoch_f1_val += f1(spk_rec, targets)
 
-            update_results_df(
-                results, 
-                name, 
-                seed, 
-                epoch,
-                {"loss": train_epoch_loss_val, "accuracy": train_epoch_acc_val, "f1": train_epoch_f1_val}, 
-                {"loss": test_epoch_loss_val, "accuracy": test_epoch_acc_val, "f1": test_epoch_f1_val}
-            )
-    clear_print()
+                train_epoch_loss_val = train_epoch_loss_val/len(train_loader)
+                train_epoch_acc_val = train_epoch_acc_val/len(train_loader)
+                train_epoch_f1_val = train_epoch_f1_val/len(train_loader)
 
-# end summary
-fig, ax = plt.subplots(1, 3, figsize=(15, 15))
-results.xs(("loss", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[0])
-results.xs(("accuracy", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[1])
-results.xs(("f1", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[2])
-plt.suptitle("Train summary")
-plt.tight_layout()
-plt.show()
+                test_epoch_loss_val, test_epoch_acc_val, test_epoch_f1_val = 0, 0, 0
+                for i, (data, targets) in enumerate(iter(test_loader)):
+                    data = data.to(device)
+                    targets = targets.squeeze().to(device)
 
-# dump results
-git_hash = get_git_revision_hash()
-results.to_csv(f"results_{git_hash}.csv")
+                    net.eval()
+                    spk_rec, mem_hist = forward_pass(net, data, config.timesteps)
+                    loss_val = loss_fn(spk_rec, targets)
+                    test_epoch_loss_val += loss_val.item()
+                    test_epoch_acc_val += accuracy(spk_rec, targets)
+                    test_epoch_f1_val += f1(spk_rec, targets)
+                
+                test_epoch_loss_val = test_epoch_loss_val/len(test_loader)
+                test_epoch_acc_val = test_epoch_acc_val/len(test_loader)
+                test_epoch_f1_val = test_epoch_f1_val/len(test_loader)
+
+                update_results_df(
+                    results, 
+                    name, 
+                    seed, 
+                    epoch,
+                    {"loss": train_epoch_loss_val, "accuracy": train_epoch_acc_val, "f1": train_epoch_f1_val}, 
+                    {"loss": test_epoch_loss_val, "accuracy": test_epoch_acc_val, "f1": test_epoch_f1_val}
+                )
+        clear_print()
+    return results
+
+def show_summary(results) -> None:
+    fig, ax = plt.subplots(1, 3, figsize=(15, 15))
+    results.xs(("loss", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[0])
+    results.xs(("accuracy", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[1])
+    results.xs(("f1", "train"), level=("stat", "mode"), axis=1).plot(figsize=(15, 5), legend=False, ax=ax[2])
+    plt.suptitle("Train summary")
+    plt.tight_layout()
+    plt.show()
+
+def dump_results(results) -> None:
+    git_hash = get_git_revision_hash()
+    filename = f"results_{git_hash}.csv"
+    results.to_csv(filename)
+    print(f"Dumped results  at {filename}")
+
+def main():
+    config = Config(
+    batch_size=32,
+    beta=0.9,
+    threshold=0.9,
+    surrogate_gradient=surrogate.fast_sigmoid(),
+    adam_betas=(0.9, 0.999),
+    rates=(0.9, 0.1),
+    epochs=50,
+    timesteps=10,
+    data_seed=1,
+    learning_rate=1e-2,
+    model_seeds=[seed for seed in range(1, 51)]
+    )
+
+    # set seed for data creation
+    print("Data seed:", config.data_seed)
+    set_seed(config.data_seed)
+
+    dataloaders = (
+        ("AND", DataLoader(continous_and_generator(size=700), config.batch_size), DataLoader(continous_and_generator(size=300), config.batch_size)),
+        ("OR", DataLoader(continous_or_generator(size=700), config.batch_size), DataLoader(continous_or_generator(size=300), config.batch_size)),
+        ("XOR", DataLoader(continous_xor_generator(size=700), config.batch_size), DataLoader(continous_xor_generator(size=300), config.batch_size))
+    )
+
+    results = run_experiments(config, dataloaders)
+
+    show_summary(results)
+    dump_results(results)
+
+main()
 
 # finding converged losses
-losses = results.xs(("loss", "train"), level=("stat", "mode"), axis=1)
-converged = losses.std()[losses.std() < losses.std().quantile(0.1)].index
+# losses = results.xs(("loss", "train"), level=("stat", "mode"), axis=1)
+# converged = losses.std()[losses.std() < losses.std().quantile(0.1)].index
