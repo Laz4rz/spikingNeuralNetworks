@@ -16,9 +16,9 @@
 
 \nralbumu{418365}
 
-\title{Classification of signals from gravitational waves detectors using spiking neural networks}
+\title{Classification of signals from gravitational wave detectors using spiking neural networks}
 
-\tytulang{Classification of signals from gravitational waves detectors using spiking neural networks}
+\tytulang{???}
 
 \kierunek{Zastosowania Fizyki w Biologii i Medycynie}
 
@@ -45,9 +45,26 @@
 
     \tableofcontents
 
-    \chapter{Introduction and motivation}
-    \section{State of deep learning}
-    Ever since the introduction of the idea of deep learning methods in 1960s, the scientific community has been striving for better and more efficient artificial networks architectures. Using classic artificial neural networks we reached the point at which trained models can not only learn basic machine learning tasks like classification and segmentation, but also out compete people in games way more complicated then chess -- Dota, StarCraft 2, Go, write poetry and songs, create images out of text and more. 
+    \chapter{Wprowadzenie}
+    \section{Stan rozwoju}
+    Pojawienie się relatywnie szybkich i dających dobre rezultaty modeli generatywnych (DALL-E, Stable Diffusion), rozwój dużych modeli językowych (LLM), jak na przykład: GPT-4\cite{gpt1}, LLaMA\cite{llama1} oraz ich wersji konwersacyjnych (Chat-GPT\cite{gpt2}) spowodowało prawdziwy wybuch zainteresowania rozwojem sieci głębokich. Sam dostęp do modeli jest jednak udostępniany najczęściej w formie API\cite{gpt3} lub przez aplikację webową\cite{gpt4}, a sam proces uczenia tak dużych sieci jest zbyt kosztowny dla środowiska akademickiego lub mniejszych, gorzej finansowanych podmiotów.
+    
+    Taki stan rzeczy powodował obawy o zmonopolizowanie dostępu, jak i rozwoju tej technologii, niemożliwość przeprowadzania reprodukowalnych badań i podobne. Sytuacja uległa częściowej poprawie po wycieku wag LLaMA\cite{llama2}. Społeczność open-source w krótkim czasie dokonała szeregu interesujących odkryć, przykładowo: duże modele językowe mogą być dotrenowane przy użyciu relatywnie małych środków\cite{alpaca1}, implementacja C++ pozwalała na uruchamianie inferencji nawet na telefonach komórkowych\cite{llamacpp1}.
+    
+    Rozwój nie dotyczy jednak tylko tych dwóch kategorii, znaczące postępy poczyniono także w generowaniu wideo\cite{jakis_model_video}, autonomicznych pojazdach\cite{coś_tesla_lub_waymo}, robotyce(?) oraz estymatach 2D-3D\cite{nerf}. Szeregi czasowe chyba nic od daaaaaaaaawna? To może plus być dla SNN.
+    
+    \section{Problemy}
+
+    Jednym z głównych motorów napędowych ostatnich przełomów jest wzrastająca niemal eksponencjalnie liczba parametrów sieci. 
+
+    \includegraphics[width=\textwidth]{n_params.png}
+    Kompilacja źródeł własna    
+    
+    - problem trenowania
+    - problem inferencji w słabszych urządzeniach, łaziki/auta/cośtam
+    - ile energii gpt3, llama
+    - liczba parametrow i energii vs mozg 
+    - architektura von neumanna i ograniczenia
     
     Above wouldn't be possible without increasing the number of learnable parameters. The StarCraft 2 playing model AlphaStar has 139-milion learnable parameters, image generating model DALL·E 2 tops it with 3.5-billion, but all are being dwarved by language processing models like GPT--3 at 176-billion and Megatron-Turing NLG 530B at 530-billion\cite{alphastar, dalle, gpt, megatron}. This way we can clearly see that more complicated tasks call for a higher number of parameters. Training those models wouldn't be a problem, if not for the earth's limited resources. It takes around 190,000 kWh to train GPT--3 alone\cite{energy}. 
     
@@ -60,7 +77,7 @@
     \section{Overwhelming amounts of data}
     
     
-    \chapter{Theory of Spiking Neural Networks}
+    \chapter{Teoria}
     \section{Overview}
     
     \section{Spiking Neurons}
@@ -72,13 +89,13 @@
     \section{Training and learning rules}
     
     
-    \chapter{Gravitational waves}
+    \chapter{??? - Istota problemu}
     \section{Overview}
     
     \section{Detectors}
     
     
-    \chapter{Analysis}
+    \chapter{??? - jakas analiza}
     \section{Data overview}
     
     \section{Data preparation}
@@ -92,69 +109,7 @@
     \section{Results -- params3}
     
     
-    \chapter{Summary}
-    
-
-%         Fale grawitacyjne to zaburzenia czasoprzestrzeni generowane przez każde przyśpieszające ciało posiadające masę. \cite{Einstein} 
-        
-%     Według człowieka, który na swoim najpopularniejszym zdjęciu pokazuje język, nigdy nie będziemy w stanie ich zaobserwować, a w konsekwencji nie docenimy jego geniuszu --- otóż mylił się, przynajmniej co do pierwszego. \cite{Abbot}  
-
-  
-%     \section{Zderzenie binarnych czarnych dziur}
-        
-%         Zmniejszanie się średnicy okręgu, po którym krążą zderzające się czarne dziury można opisać zależnością od czasu (Wzór \ref{wzór}). Należy jednak znać początkowy promień ($ r_o $) oraz czas do zderzenia ($ t_{zderzenia} $), który wedle mojego zegarka nastąpi wynosi mniej niż czas potrzebny do napisania tej pracy.
-        
-        
-% \begin{equation}
-% \label{wzór}
-% r(t) = r_o (1-\frac{t}{t_{zderzenia}})^{1/4}
-% \end{equation}
-   
-%     Przykładowe dane pochodzące z detektorów czarnych dziur (Rysunek \ref{sygnał}) uzmysławiają nam bezkres wszechświata i bezsens kryjący się w pisaniu pracy licencjackiej.
-   
-   
-%     \begin{figure}[hb]
-% \begin{center}
-% \label{sygnał}
-% \resizebox{8cm}{!}{
-% \includegraphics{medium.png}
-% }
-% \caption{Przykładowa analiza zarejestrowanych fal grawitacyjnych \cite{Abbot} }
-% \end{center}
-% \end{figure}
-
-        
-%     \chapter{Sieci Pulsujące}
-
-% Sieci pulsujące to kolejna komiczna nazwa, która została skrzywdzona polskim tłumaczeniem. Sieci te opierają się o założenie enkodowania danych do postaci impulsów oraz ich umiejscowienie w czasie.  \cite{Ghosh}
-
-
-% Wagi na połączeniach synpatycznych są liczbami zmiennoprzecinkowymi, co widać w Tabela \ref{tabela}.
-
-% \begin{table}[h]
-% \centering
-
-% \caption{Przykładowa konfiguracja sieci}
-% \begin{tabular}{||l||c||} \hline \hline
-% Numer połączenia & Waga [$1$]\\
-% \hline
-% \hline
-% 1 & 0,171\\
-% \hline
-% 2 & 0,271\\
-% \hline
-% 3 & 0,314\\
-% \hline
-% 4 & 0,420\\
-% \hline
-% \end{tabular}
-% \label{tabela}
-% \end{table}
-%     %\chapter{Metodologia}
-%   % \chapter{Wyniki}
-   
-%     %\chapter{Dyskusja}
-%   % \chapter{Podsumowanie}
+    \chapter{Podsumowanie}
 
 \bibliographystyle{plain}
 \bibliography{bibliografia}
