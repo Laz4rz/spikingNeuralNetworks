@@ -28,41 +28,13 @@ params = [d[2] for d in data]
 df = pd.DataFrame({"model": model, "params": params}, index=date)
 df["days"] = pd.to_datetime(df.reset_index()["index"]).diff().fillna(pd.Timedelta("0D")).dt.days.values.cumsum()
 
-
 # fit linear model
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import make_pipeline
 
 X = df["days"].values.reshape(-1, 1)
-y = df["params"].values.reshape(-1, 1) * 1e9
+y = df["params"].values.reshape(-1, 1)
 
-model = make_pipeline(PolynomialFeatures(degree=1), LinearRegression())
-model.fit(X, y)
-
-print(model.named_steps["linearregression"].coef_)
-print(model.named_steps["linearregression"].intercept_)
-
-# get doubling time from model
-doubling_time = np.log(2) / model.named_steps["linearregression"].coef_[0][0]
-
-
-# from sklearn.linear_model import LinearRegression
-# from sklearn.preprocessing import PolynomialFeatures
-# from sklearn.pipeline import make_pipeline
-
-# X = df["days"].values.reshape(-1, 1)
-# y = df["params"].values.reshape(-1, 1)
-
-# model = make_pipeline(PolynomialFeatures(degree=1), LinearRegression())
-# model.fit(X, y)
-
-# print(model.named_steps["linearregression"].coef_)
-
-# # get doubling time from model
-# doubling_time = np.log(2) / model.named_steps["linearregression"].coef_[0][0]
-
-# print(f"Doubling timep: {doubling_time:.2f} days")
+reg = LinearRegression(fit_intercept=False).fit(X, y)
 
 # plot
 plt.figure(figsize=(10, 5))
@@ -78,13 +50,13 @@ for i in data:
 
 
 # plot log-linear model
-plt.plot(df.index, model.predict(X), linestyle="--", color="black")
+plt.plot(df.index, reg.predict(X), linestyle="--", color="black")
 
-# plt.yscale("log")
+plt.yscale("log")
 # plt.xlim(df.index[0], df.index[-1])
 plt.ylim(0.1, 1000)
 plt.axhline(y=brain[1], color="r", linestyle="--")
-plt.legend(["Liczba parametrów sztucznych sieci neuronowych", "Średnia liczba neuronów w ludzkim mózgu"])
+plt.legend(["Liczba parametrów sztucznych sieci neuronowych", "dopasowany model liniowy", "Średnia liczba neuronów w ludzkim mózgu"])
 plt.savefig("../Latex/n_params.png")
 plt.show()
 
