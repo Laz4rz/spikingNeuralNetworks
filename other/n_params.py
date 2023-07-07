@@ -26,15 +26,31 @@ model = [d[1] for d in data]
 params = [d[2] for d in data]
 
 df = pd.DataFrame({"model": model, "params": params}, index=date)
-df["days"] = pd.to_datetime(df.reset_index()["index"]).diff().fillna(pd.Timedelta("0D")).dt.days.values.cumsum()
+df["days"] = pd.to_datetime(df.reset_index()["index"]).diff().fillna(pd.Timedelta("1D")).dt.days.values.cumsum()
 
 # fit linear model
 from sklearn.linear_model import LinearRegression
 
 X = df["days"].values.reshape(-1, 1)
-y = df["params"].values.reshape(-1, 1)
+y = np.log(df["params"].values.reshape(-1, 1))
 
-reg = LinearRegression(fit_intercept=False).fit(X, y)
+reg = LinearRegression().fit(X, y)
+df["pred"] = reg.predict(df.days.values.reshape(-1,1)).reshape(1, -1).squeeze()
+
+
+# fit log-linear model
+# X = X.reshape(1, -1).squeeze()
+# y = y.reshape(1, -1).squeeze()
+# a, b = np.polyfit(np.log(X), y, 1)
+
+# # fit exponential model
+# def exponential_func(x, a, b, c):
+#     return a * np.exp(-b * x) + c
+
+# from scipy.optimize import curve_fit
+
+# popt, pcov = curve_fit(exponential_func, X, y, p0=(1, 1e-6, 1))
+# a, b, c = popt
 
 # plot
 plt.figure(figsize=(10, 5))
@@ -50,7 +66,9 @@ for i in data:
 
 
 # plot log-linear model
-plt.plot(df.index, reg.predict(X), linestyle="--", color="black")
+# plt.plot(df.index, reg.predict(X), linestyle="--", color="black")
+# plt.plot(df.index, a*np.log(X)+b)
+# plt.plot(df.index, a*np.log(np.arange(0, 1400))+b)
 
 plt.yscale("log")
 # plt.xlim(df.index[0], df.index[-1])

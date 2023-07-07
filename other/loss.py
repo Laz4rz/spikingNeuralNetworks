@@ -25,3 +25,4 @@ y = torch.tensor([[1, 0], [1, 0], [1, 0], [0, 1]], dtype=torch.float32)
 y_pred = forward_pass(net, x, 10)
 
 loss = loss_fn(y_pred, y)
+    
