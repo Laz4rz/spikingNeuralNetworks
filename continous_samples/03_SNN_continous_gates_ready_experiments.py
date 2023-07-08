@@ -240,7 +240,8 @@ def show_summary(results) -> None:
 
 def dump_results(results) -> None:
     git_hash = get_git_revision_hash()
-    filename = f"results_{git_hash}.hdf"
+    snn_version = snn.__version__
+    filename = f"results_{git_hash}_{snn_version}.hdf"
     results.to_hdf(filename, key="results")
     print(f"Dumped results at {filename}")
 
