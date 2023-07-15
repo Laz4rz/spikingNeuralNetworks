@@ -18,8 +18,10 @@ import snntorch.functional as SF
 import snntorch.spikeplot as splt
 
 import sys
+import time
 
 sys.path.append("../")
+sys.path.append("/home/mikolaj/github/spikingNeuralNetworks_exploration/")
 from toolbox import (
     continous_and_generator,
     continous_or_generator,
@@ -32,6 +34,12 @@ from toolbox import (
 )
 
 np.printoptions(precision=3)
+
+runtimes = {
+    "AND": [],
+    "OR": [],
+    "XOR": []
+}
 
 
 def accuracy(spk_out, targets):
@@ -135,6 +143,7 @@ def run_experiments(config, dataloaders) -> pd.DataFrame:
     for name, train_loader, test_loader in dataloaders:
         print("Experiment:", name)
         for seed in config.model_seeds:
+            start_time = time.monotonic()
             print("Model seed:", seed)
             set_seed(seed=seed)
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -218,6 +227,9 @@ def run_experiments(config, dataloaders) -> pd.DataFrame:
                         "f1": test_epoch_f1_val,
                     },
                 )
+                
+            end_time = time.monotonic()
+            runtimes[name].append(end_time - start_time)
         clear_print()
     return results
 
@@ -258,7 +270,7 @@ def main():
         timesteps=10,
         data_seed=1,
         learning_rate=1e-2,
-        model_seeds=[seed for seed in range(1, 51)],
+        model_seeds=range(1, 51),
     )
 
     # set seed for data creation
@@ -286,7 +298,7 @@ def main():
     results = run_experiments(config, dataloaders)
 
     show_summary(results)
-    dump_results(results)
+    # dump_results(results)
 
 
 main()

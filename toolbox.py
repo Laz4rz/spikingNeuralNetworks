@@ -8,6 +8,7 @@ from snntorch import utils
 from typing import List, Tuple, Callable
 from dataclasses import dataclass
 
+
 @dataclass
 class Config:
     batch_size: int
@@ -22,38 +23,55 @@ class Config:
     surrogate_gradient: Callable
     model_seeds: List[int]
 
-def and_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
-  x = Tensor(np.random.choice([0, 1], (size, 2)))
-  y = Tensor([1 if i[0] and i[1] else 0 for i in x]).reshape(size, 1)
 
-  return list(zip(x, y))
+def and_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
+    x = Tensor(np.random.choice([0, 1], (size, 2)))
+    y = Tensor([1 if i[0] and i[1] else 0 for i in x]).reshape(size, 1)
+
+    return list(zip(x, y))
+
 
 def or_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
-  x = Tensor(np.random.choice([0, 1], (size, 2)))
-  y = Tensor([1 if i[0] or i[1] else 0 for i in x]).reshape(size, 1)
+    x = Tensor(np.random.choice([0, 1], (size, 2)))
+    y = Tensor([1 if i[0] or i[1] else 0 for i in x]).reshape(size, 1)
 
-  return list(zip(x, y))
+    return list(zip(x, y))
+
 
 def xor_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
-  x = np.random.choice([0, 1], (size, 2))
-  y = Tensor([1 if i[0] ^ i[1] else 0 for i in x]).reshape(size, 1)
-  x = Tensor(x)
-  return list(zip(x, y))
+    x = np.random.choice([0, 1], (size, 2))
+    y = Tensor([1 if i[0] ^ i[1] else 0 for i in x]).reshape(size, 1)
+    x = Tensor(x)
+    return list(zip(x, y))
+
 
 def continous_and_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
     x = torch.from_numpy(np.random.random(size=(size, 2)).round(2)).to(torch.float32)
-    y = torch.from_numpy(np.apply_along_axis(lambda t: t[0] > 0.5 and t[1] > 0.5, 1, x).astype(int)).to(torch.float16)
+    y = torch.from_numpy(
+        np.apply_along_axis(lambda t: t[0] > 0.5 and t[1] > 0.5, 1, x).astype(int)
+    ).to(torch.float16)
     return list(zip(x, y))
+
 
 def continous_or_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
     x = torch.from_numpy(np.random.random(size=(size, 2)).round(2)).to(torch.float32)
-    y = torch.from_numpy((~np.apply_along_axis(lambda t: t[0] < 0.5 and t[1] < 0.5, 1, x)).astype(int)).to(torch.float16)
+    y = torch.from_numpy(
+        (~np.apply_along_axis(lambda t: t[0] < 0.5 and t[1] < 0.5, 1, x)).astype(int)
+    ).to(torch.float16)
     return list(zip(x, y))
+
 
 def continous_xor_generator(size: int) -> List[Tuple[Tensor, Tensor]]:
     x = torch.from_numpy(np.random.random(size=(size, 2)).round(2)).to(torch.float32)
-    y = torch.from_numpy((~np.apply_along_axis(lambda t: (t[0] < 0.5 and t[1] < 0.5) or t[0] > 0.5 and t[1] > 0.5, 1, x)).astype(int)).to(torch.float16)
+    y = torch.from_numpy(
+        (
+            ~np.apply_along_axis(
+                lambda t: (t[0] < 0.5 and t[1] < 0.5) or t[0] > 0.5 and t[1] > 0.5, 1, x
+            )
+        ).astype(int)
+    ).to(torch.float16)
     return list(zip(x, y))
+
 
 def set_seed(seed: int = 42) -> None:
     seed = int(seed)
@@ -68,29 +86,30 @@ def set_seed(seed: int = 42) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
     print(f"Random seed set as {seed}")
 
+
 def forward_pass(net, data, num_steps: int) -> Tuple[Tensor, np.ndarray]:
-  spk_rec = []
-  mem_hist = []
-  utils.reset(net)
+    spk_rec = []
+    mem_hist = []
+    utils.reset(net)
 
-  for step in range(num_steps):
-      spk_out, mem_out = net(data)
-      mem_hist.append(mem_out.cpu().detach().numpy())
-      spk_rec.append(spk_out)
+    for step in range(num_steps):
+        spk_out, mem_out = net(data)
+        mem_hist.append(mem_out.cpu().detach().numpy())
+        spk_rec.append(spk_out)
 
-  return torch.stack(spk_rec), np.stack(mem_hist)
+    return torch.stack(spk_rec), np.stack(mem_hist)
 
 
 def clear_print():
-  import os
+    import os
 
-  if os.name == 'nt':
-    os.system('cls')
-  else:
-    os.system('clear')
+    if os.name == "nt":
+        os.system("cls")
+    else:
+        os.system("clear")
 
 
 def get_git_revision_hash() -> str:
     import subprocess
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
